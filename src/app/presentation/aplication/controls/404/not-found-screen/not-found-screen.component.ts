@@ -1,4 +1,4 @@
-import { environment } from '@/environments/environment';
+import { environment } from '../../../../../../environments/environment';
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { APP_ROUTES } from '@domain';
