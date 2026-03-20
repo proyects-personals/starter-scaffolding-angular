@@ -1,5 +1,8 @@
 const fs = require('fs');
 
+console.log('🔹 process.env.APIURL:', process.env.APIURL);
+console.log('🔹 process.env.GITHUB_TOKEN:', process.env.GITHUB_TOKEN);
+
 const envConfig = `
 export const environment = {
   production: true,
