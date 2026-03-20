@@ -1,4 +1,4 @@
-name: PR CI & Auto Pull request
+name: PR CI & Auto Pull Request
 
 on:
   pull_request:
@@ -14,6 +14,9 @@ jobs:
     outputs:
       lint_status: ${{ steps.lint.outcome }}
       commitlint_status: ${{ steps.commitlint.outcome }}
+      test_status: ${{ steps.test.outcome }}
+      security_status: ${{ steps.audit.outcome }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,8 +26,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install deps
-        run: npm install
+      - run: npm install
 
       - name: Commitlint
         id: commitlint
@@ -35,64 +37,97 @@ jobs:
         id: lint
         continue-on-error: true
         run: npm run lint
-      
+
+      - name: Type Check
+        run: npx tsc --noEmit
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: npm run test:coverage
+
+      - name: Audit
+        id: audit
+        continue-on-error: true
+        run: |
+          mkdir -p reports
+          npm audit --json > reports/npm-audit.json || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: reports/npm-audit.json
+
       - name: Final Check
         run: |
-          if [ "${{ steps.commitlint.outcome }}" == "failure" ] || [ "${{ steps.lint.outcome }}" == "failure" ]; then
-            echo "CI falló, pero notificaremos al PR"
+          if [ "${{ steps.commitlint.outcome }}" == "failure" ] || \
+             [ "${{ steps.lint.outcome }}" == "failure" ] || \
+             [ "${{ steps.test.outcome }}" == "failure" ]; then
             exit 1
           fi
 
   update-pr:
     needs: ci
-    if: always() # CRITICO: Se ejecuta aunque 'ci' falle
+    if: always()
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Collect Data
-        id: data
         run: |
           COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'- %s' | sed ':a;N;$!ba;s/\n/\\n/g')
           FIRST_COMMIT=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'%s' | tail -n 1)
           FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
           TYPES=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'%s' | cut -d: -f1 | sort -u | tr '\n' ',' | sed 's/,$//')
-          
+
           echo "COMMITS=$COMMITS" >> $GITHUB_ENV
           echo "FIRST_COMMIT=$FIRST_COMMIT" >> $GITHUB_ENV
           echo "FILES=$FILES" >> $GITHUB_ENV
           echo "TYPES=$TYPES" >> $GITHUB_ENV
 
-      - name: Update PR title & body
+      - name: Update PR
         uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request
-            const ciStatus = "${{ needs.ci.result }}" // 'success' o 'failure'
-            
-            // Verificamos estados específicos de los steps del job anterior
+            const ciStatus = "${{ needs.ci.result }}"
+
             const lintPassed = "${{ needs.ci.outputs.lint_status }}" === "success"
             const commitlintPassed = "${{ needs.ci.outputs.commitlint_status }}" === "success"
+            const testPassed = "${{ needs.ci.outputs.test_status }}" === "success"
+            const securityPassed = "${{ needs.ci.outputs.security_status }}" === "success"
 
             const commits = (process.env.COMMITS || '- Sin commits').replace(/\\n/g, '\n')
             const files = (process.env.FILES || '- Sin cambios').replace(/\\n/g, '\n')
             const title = process.env.FIRST_COMMIT || pr.head.ref
 
-            const body = 
+            const body =
               '## 🧾 Descripción\n' +
               'Este PR incluye los siguientes cambios:\n\n' +
+
               '## 🔄 Cambios realizados\n' +
               commits + '\n\n' +
+
               '## 📂 Archivos modificados\n' +
               files.split('\n').map(f => `- \`${f}\``).join('\n') + '\n\n' +
+
               '## 🏷️ Tipo de cambio\n' +
               `\`${process.env.TYPES || 'chore'}\`\n\n` +
-              '## ☑️ Checklist CI\n' +
-              `- [${commitlintPassed ? 'x' : ' '}] Commitlint ${commitlintPassed ? '✅' : '❌'}\n` +
-              `- [${lintPassed ? 'x' : ' '}] Lint ${lintPassed ? '✅' : '❌'}\n` +
-              '- [ ] Tests (No configurado)\n\n' +
+
+              '## 🧪 Resultados CI\n' +
+              `- Commitlint: ${commitlintPassed ? '✅' : '❌'}\n` +
+              `- Lint: ${lintPassed ? '✅' : '❌'}\n` +
+              `- Tests: ${testPassed ? '✅' : '❌'}\n` +
+              `- Security: ${securityPassed ? '✅' : '⚠️ Revisar'}\n\n` +
+
               `**Estado Global:** ${ciStatus === 'success' ? '🟢 Pass' : '🔴 Falló algún paso'}\n\n` +
               '_PR actualizado automáticamente por CI_ 🤖'
 
@@ -100,6 +135,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr.number,
-              title: title,
-              body: body
+              title,
+              body
             })
