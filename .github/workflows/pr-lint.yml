@@ -1,17 +1,40 @@
 name: PR Lint
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize]
+  workflow_run:
+    workflows: ["PR CI & Auto Pull Request"]
+    types:
+      - completed
 
 jobs:
   pr-lint:
     runs-on: ubuntu-latest
 
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
+      - name: Get PR data
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.payload.workflow_run.head_sha,
+            });
+
+            if (!prs.data.length) {
+              core.setFailed("No PR found for this workflow run");
+              return;
+            }
+
+            const pr = prs.data[0];
+            core.setOutput("title", pr.title);
+
       - name: Validate PR title
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
+          TITLE="${{ steps.pr.outputs.title }}"
           echo "PR Title: $TITLE"
 
           if ! echo "$TITLE" | grep -E "^(feat|fix|chore|docs|refactor|ci|test|style)(\([a-z0-9\-]+\))?: .+"; then
