@@ -1,0 +1,40 @@
+name: Security & Dependencies
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Audit NPM packages
+        run: |
+          mkdir -p reports
+          npm audit --json > reports/npm-audit.json || true
+          cat reports/npm-audit.json
+
+      - name: Check outdated packages
+        run: |
+          npm outdated || true
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        if: always() # Se asegura de subir el reporte incluso si los pasos anteriores fallaron
+        with:
+          name: security-report
+          path: reports/npm-audit.json
