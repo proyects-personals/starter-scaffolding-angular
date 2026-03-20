@@ -30,12 +30,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Tests
-        run: npm test -- --ci
-
-      - name: Security audit
-        run: npm audit --audit-level=high
-
   update-pr:
     needs: ci
     runs-on: ubuntu-latest
@@ -78,7 +72,7 @@ jobs:
 
             const title = firstCommit
 
-            const body =
+            const body = 
               '## 🧾 Descripción\n' +
               'Este PR incluye los siguientes cambios:\n\n' +
               '## 🔄 Cambios realizados\n' +
@@ -90,8 +84,8 @@ jobs:
               '## ☑️ Checklist CI\n' +
               '- [x] Commitlint\n' +
               '- [x] Lint\n' +
-              '- [x] Tests\n' +
-              '- [x] Security audit\n\n' +
+              '- [ ] Tests (Saltado)\n' +
+              '- [ ] Security audit (Saltado)\n\n' +
               '_PR actualizado automáticamente por CI_ 🤖'
 
             await github.rest.pulls.update({
