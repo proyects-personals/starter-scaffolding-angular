@@ -1,4 +1,4 @@
-name: Security & Dependencies
+name: Security & Build
 
 on:
   push:
@@ -8,8 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  security:
+  security-and-build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,8 +31,13 @@ jobs:
           npm audit --audit-level=high
 
       - name: Check outdated packages
-        run: |
-          npm outdated || true
+        run: npm outdated || true
+
+      - name: Set environment for production
+        run: node set-env.cjs
+
+      - name: Build Angular production
+        run: ng build --configuration production
 
       - name: Upload security report
         uses: actions/upload-artifact@v4
