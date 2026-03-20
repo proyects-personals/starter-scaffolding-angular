@@ -1,0 +1,41 @@
+name: CI - Test & Quality
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - run: npx tsc --noEmit
+
+      - run: |
+          mkdir -p reports
+          npx eslint "src/**/*.{ts,html}" -f html -o reports/eslint-report.html
+          npx eslint "src/**/*.{ts,html}" --max-warnings=0
+
+      - run: npm run format:check
+
+      - run: npm run test:coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eslint-report
+          path: reports/eslint-report.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/

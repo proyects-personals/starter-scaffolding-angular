@@ -4,12 +4,17 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/spec",
-    "types": [
-      "vitest/globals"
-    ]
+    "rootDir": "./",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["jest", "node"],
+    "target": "es2022",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src/**/*.d.ts",
-    "src/**/*.spec.ts"
-, "src/app/presentation/pages/onboarding/welcome/welcome/welcome.componentspec.ts"  ]
+    "src/setup-jest.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.d.ts"
+  ]
 }
