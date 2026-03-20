@@ -20,7 +20,6 @@ import { APP_ROUTES } from '@domain';
 export class NotFoundScreenComponent {
   private readonly _router = inject(Router);
   public readonly routes = APP_ROUTES;
-  public readonly title = environment.apiUrl;
 
   /**
    * @method handleBackHome
