@@ -1,0 +1,38 @@
+import { defineConfig, loadEnv } from 'vite';
+import angular from '@analogjs/vite-plugin-angular';
+import tailwindcss from '@tailwindcss/vite';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [
+      angular(),
+      tailwindcss(),
+    ],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@domain': path.resolve(__dirname, './src/app/domain'),
+        '@application': path.resolve(__dirname, './src/app/application'),
+        '@infrastructure': path.resolve(__dirname, './src/app/infrastructure'),
+        '@presentation': path.resolve(__dirname, './src/app/presentation'),
+        '@assets': path.resolve(__dirname, './src/assets'),
+        '@i18n': path.resolve(__dirname, './src/assets/i18n')
+      },
+    },
+    define: {
+      'process.env.EMAILJS_SERVICE_ID': JSON.stringify(env.EMAILJS_SERVICE_ID),
+      'process.env.EMAILJS_TEMPLATE_ID': JSON.stringify(env.EMAILJS_TEMPLATE_ID),
+      'process.env.EMAILJS_PUBLIC_KEY': JSON.stringify(env.EMAILJS_PUBLIC_KEY),
+      'process.env.GITHUB_TOKEN': JSON.stringify(env.GITHUB_TOKEN),
+      'process.env.PROD': JSON.stringify(env.PROD),
+      'process.env.ANALYTICS_KEY': JSON.stringify(env.ANALYTICS_KEY),
+    },
+  };
+});
