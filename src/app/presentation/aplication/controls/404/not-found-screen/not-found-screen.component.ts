@@ -1,3 +1,4 @@
+import { environment } from '@/environments/environment';
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { APP_ROUTES } from '@domain';
@@ -19,6 +20,7 @@ import { APP_ROUTES } from '@domain';
 export class NotFoundScreenComponent {
   private readonly _router = inject(Router);
   public readonly routes = APP_ROUTES;
+  public readonly title = environment.apiUrl;
 
   /**
    * @method handleBackHome
