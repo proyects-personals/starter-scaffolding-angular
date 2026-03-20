@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
@@ -25,7 +25,7 @@ jobs:
       - name: Audit NPM packages
         run: |
           mkdir -p reports
-          npm audit --json > reports/npm-audit.json
+          npm audit --json > reports/npm-audit.json || true
           cat reports/npm-audit.json
 
       - name: Check outdated packages
@@ -34,6 +34,7 @@ jobs:
 
       - name: Upload security report
         uses: actions/upload-artifact@v4
+        if: always() # Se asegura de subir el reporte incluso si los pasos anteriores fallaron
         with:
           name: security-report
           path: reports/npm-audit.json

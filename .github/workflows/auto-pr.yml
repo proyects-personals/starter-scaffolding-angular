@@ -11,7 +11,9 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
-
+    outputs:
+      lint_status: ${{ steps.lint.outcome }}
+      commitlint_status: ${{ steps.commitlint.outcome }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,38 +27,42 @@ jobs:
         run: npm install
 
       - name: Commitlint
+        id: commitlint
+        continue-on-error: true
         run: npx commitlint --from=origin/${{ github.base_ref }} --to=HEAD
 
       - name: Lint
+        id: lint
+        continue-on-error: true
         run: npm run lint
+      
+      - name: Final Check
+        run: |
+          if [ "${{ steps.commitlint.outcome }}" == "failure" ] || [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "CI falló, pero notificaremos al PR"
+            exit 1
+          fi
 
   update-pr:
     needs: ci
+    if: always() # CRITICO: Se ejecuta aunque 'ci' falle
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Collect commits
+      - name: Collect Data
+        id: data
         run: |
           COMMITS=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'- %s' | sed ':a;N;$!ba;s/\n/\\n/g')
-          echo "COMMITS=$COMMITS" >> $GITHUB_ENV
-
-      - name: Collect first commit title
-        run: |
           FIRST_COMMIT=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'%s' | tail -n 1)
-          echo "FIRST_COMMIT=$FIRST_COMMIT" >> $GITHUB_ENV
-
-      - name: Collect changed files
-        run: |
           FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | sed ':a;N;$!ba;s/\n/\\n/g')
-          echo "FILES=$FILES" >> $GITHUB_ENV
-
-      - name: Detect commit types
-        run: |
           TYPES=$(git log origin/${{ github.base_ref }}..HEAD --pretty=format:'%s' | cut -d: -f1 | sort -u | tr '\n' ',' | sed 's/,$//')
+          
+          echo "COMMITS=$COMMITS" >> $GITHUB_ENV
+          echo "FIRST_COMMIT=$FIRST_COMMIT" >> $GITHUB_ENV
+          echo "FILES=$FILES" >> $GITHUB_ENV
           echo "TYPES=$TYPES" >> $GITHUB_ENV
 
       - name: Update PR title & body
@@ -64,13 +70,15 @@ jobs:
         with:
           script: |
             const pr = context.payload.pull_request
+            const ciStatus = "${{ needs.ci.result }}" // 'success' o 'failure'
+            
+            // Verificamos estados específicos de los steps del job anterior
+            const lintPassed = "${{ needs.ci.outputs.lint_status }}" === "success"
+            const commitlintPassed = "${{ needs.ci.outputs.commitlint_status }}" === "success"
 
             const commits = (process.env.COMMITS || '- Sin commits').replace(/\\n/g, '\n')
             const files = (process.env.FILES || '- Sin cambios').replace(/\\n/g, '\n')
-            const firstCommit = process.env.FIRST_COMMIT || pr.head.ref
-            const types = process.env.TYPES || 'chore'
-
-            const title = firstCommit
+            const title = process.env.FIRST_COMMIT || pr.head.ref
 
             const body = 
               '## 🧾 Descripción\n' +
@@ -80,18 +88,18 @@ jobs:
               '## 📂 Archivos modificados\n' +
               files.split('\n').map(f => `- \`${f}\``).join('\n') + '\n\n' +
               '## 🏷️ Tipo de cambio\n' +
-              `\`${types}\`\n\n` +
+              `\`${process.env.TYPES || 'chore'}\`\n\n` +
               '## ☑️ Checklist CI\n' +
-              '- [x] Commitlint\n' +
-              '- [x] Lint\n' +
-              '- [ ] Tests (Saltado)\n' +
-              '- [ ] Security audit (Saltado)\n\n' +
+              `- [${commitlintPassed ? 'x' : ' '}] Commitlint ${commitlintPassed ? '✅' : '❌'}\n` +
+              `- [${lintPassed ? 'x' : ' '}] Lint ${lintPassed ? '✅' : '❌'}\n` +
+              '- [ ] Tests (No configurado)\n\n' +
+              `**Estado Global:** ${ciStatus === 'success' ? '🟢 Pass' : '🔴 Falló algún paso'}\n\n` +
               '_PR actualizado automáticamente por CI_ 🤖'
 
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr.number,
-              title,
-              body
+              title: title,
+              body: body
             })
