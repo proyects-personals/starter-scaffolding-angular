@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 permissions:
-  contents: write # Necesario para subir los archivos a la rama de gh-pages
+  contents: write
 
 jobs:
   build-and-deploy:
@@ -20,27 +20,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
-        # Mantenemos install porque el lock está en el ignore
         run: npm install
 
       - name: Run build
-        # Construimos la app. Asegúrate de que el output sea 'dist'
         run: npm run build
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: angular-build
-          path: dist # Ajusta si tu output es 'dist/nombre-proyecto'
+          path: dist/
 
-      # DESPLIEGUE A GITHUB PAGES (Ejemplo real)
-      # Solo se ejecuta si el push es en la rama 'main'
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist # La carpeta que se subirá
-          branch: gh-pages # Rama destino del deploy
+          folder: dist
+          branch: gh-pages
